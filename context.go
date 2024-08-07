@@ -135,19 +135,21 @@ func (c *context) updateDevices() {
 
 		// Check for changes on read and write IOPS
 		if rIops >= dev.rIops+uint64(c.threshold) || wIops >= dev.wIops+uint64(c.threshold) {
-			dev.rIops, dev.wIops, dev.lastChange = rIops, wIops, now
+			dev.rIops, dev.wIops, dev.lastChange, dev.isSleeping = rIops, wIops, now, false
 			if c.verbose {
-				log.Printf("rIops or wIops has changed on %s", dev.device)
+				log.Printf("rIops or wIops has changed on '%s'", dev.device)
 			}
 			continue
 		}
 
-		// Check for possible standby
-		if dev.lastChange+int64(c.idlePeriod) <= now {
+		// If is not sleeping and should have, put device to sleep
+		if !dev.isSleeping && dev.lastChange+int64(c.idlePeriod) <= now {
 			if dev.lastStandBy == 0 || dev.lastStandBy+int64(c.gracePeriod) <= now {
-				dev.lastStandBy = now
+				dev.lastStandBy, dev.isSleeping = now, true
 				log.Printf("going to put '%s' to sleep ", dev.device)
-				putDriveToSleep(dev.device)
+				if err := putDriveToSleep(dev.device); err != nil {
+					log.Print(err)
+				}
 			} else {
 				if c.verbose {
 					log.Printf("it is too soon to put '%s' to sleep", dev.device)

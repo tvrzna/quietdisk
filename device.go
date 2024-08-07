@@ -16,6 +16,7 @@ type device struct {
 	lastChange  int64
 	lastStandBy int64
 	exists      bool
+	isSleeping  bool
 }
 
 // Initializes device
@@ -52,6 +53,7 @@ func (d *device) reset() {
 	d.lastChange = 0
 	d.lastStandBy = 0
 	d.name = ""
+	d.isSleeping = false
 }
 
 // Checks if defined device is partition

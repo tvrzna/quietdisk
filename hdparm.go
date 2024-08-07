@@ -52,5 +52,5 @@ func runHdparm(args ...string) error {
 }
 
 func putDriveToSleep(device string) error {
-	return runHdparm("-C", device)
+	return runHdparm("-Y", device)
 }
