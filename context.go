@@ -23,6 +23,7 @@ type context struct {
 	idlePeriod  int
 	gracePeriod int
 	threshold   int
+	verbose     bool
 }
 
 // Initializes the context
@@ -41,6 +42,7 @@ Options:
 	-i, --idle [SECONDS]		sets idle period, before device is put into standby mode (default = 300)
 	-g, --grace [SECONDS]		sets grace period, before device could be put into standby mode after return from standby mode (default = 600)
 	-t, --treshold [IOPS]		sets IOPS treshold (default = 1)
+	-V, --verbose			adds verbosity into logs
 `)
 			os.Exit(0)
 		case "-v", "--version":
@@ -53,7 +55,7 @@ Options:
 		case "-l", "--list":
 			// TODO: list all available devices
 		case "-V", "--verbose":
-			// TODO: log verbosity
+			c.verbose = true
 		default:
 			// TODO: support * for all devices
 			if strings.TrimSpace(value) != "" {
@@ -73,9 +75,20 @@ Options:
 
 // Starts context and its periodical checks
 func (c *context) start() {
+	log.Print("quietdisk started")
+
+	sleep := 60
+	if sleep > c.idlePeriod {
+		sleep = c.idlePeriod
+	}
+
 	for {
+		if c.verbose {
+			log.Print("updating devices")
+		}
 		c.updateDevices()
-		time.Sleep(time.Minute)
+
+		time.Sleep(time.Duration(sleep) * time.Second)
 	}
 }
 
@@ -95,7 +108,6 @@ func (c *context) initDevices() {
 func (c *context) updateDevices() {
 	for _, d := range c.devices {
 		d.updateMajorMinor()
-		log.Print(d)
 	}
 
 	b, err := os.ReadFile(pathDiskstats)
@@ -124,7 +136,9 @@ func (c *context) updateDevices() {
 		// Check for changes on read and write IOPS
 		if rIops >= dev.rIops+uint64(c.threshold) || wIops >= dev.wIops+uint64(c.threshold) {
 			dev.rIops, dev.wIops, dev.lastChange = rIops, wIops, now
-			log.Printf("rIops or wIops has changed on %s", dev.device)
+			if c.verbose {
+				log.Printf("rIops or wIops has changed on %s", dev.device)
+			}
 			continue
 		}
 
@@ -133,8 +147,11 @@ func (c *context) updateDevices() {
 			if dev.lastStandBy == 0 || dev.lastStandBy+int64(c.gracePeriod) <= now {
 				dev.lastStandBy = now
 				log.Printf("going to put '%s' to sleep ", dev.device)
+				putDriveToSleep(dev.device)
 			} else {
-				log.Printf("it is too soon to put '%s' to sleep", dev.device)
+				if c.verbose {
+					log.Printf("it is too soon to put '%s' to sleep", dev.device)
+				}
 			}
 		}
 	}

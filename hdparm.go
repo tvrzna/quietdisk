@@ -39,8 +39,6 @@ func getExec(args ...string) (*exec.Cmd, error) {
 		args = slices.Insert(args, 0, pathHdparm)
 	}
 
-	args = append(args, "-j")
-
 	return exec.Command(command, args...), nil
 }
 
