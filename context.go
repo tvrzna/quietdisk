@@ -119,6 +119,11 @@ func (c *context) updateDevices() {
 	for scanner.Scan() {
 		data := strings.Fields(scanner.Text())
 
+		if len(data) < 8 {
+			log.Printf("incorrect number of fields from %s", pathDiskstats)
+			continue
+		}
+
 		major, _ := strconv.Atoi(data[0])
 		minor, _ := strconv.Atoi(data[1])
 		name := data[2]
