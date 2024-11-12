@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"slices"
+	"strings"
 )
 
 var pathHdparm string
@@ -42,15 +43,33 @@ func getExec(args ...string) (*exec.Cmd, error) {
 	return exec.Command(command, args...), nil
 }
 
-func runHdparm(args ...string) error {
+func runHdparm(args ...string) (string, error) {
 	cmd, err := getExec(args...)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return cmd.Run()
+	var data []byte
+	data, err = cmd.Output()
+
+	return string(data), err
+
 }
 
 func putDriveToSleep(device string) error {
-	return runHdparm("-Y", device)
+	_, err := runHdparm("-Y", device)
+	return err
+}
+
+func isDriveSleeping(device string) (bool, error) {
+	output, err := runHdparm("-C", device)
+	if err != nil {
+		return false, err
+	}
+	i := strings.Index(output, "drive state is: ")
+	if i < 0 {
+		return false, errors.New("could not get drive state")
+	}
+	state := strings.TrimSpace(output[i+16:])
+	return state == "standby", nil
 }
