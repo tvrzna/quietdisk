@@ -134,7 +134,7 @@ func (c *context) updateDevices() {
 		now := time.Now().Unix()
 
 		// Check for changes on read and write IOPS
-		if rIops >= dev.rIops+uint64(c.threshold) || wIops >= dev.wIops+uint64(c.threshold) {
+		if rIops >= dev.rIops && rIops-dev.rIops >= uint64(c.threshold) || wIops >= dev.wIops && wIops-dev.wIops >= uint64(c.threshold) {
 			dev.rIops, dev.wIops, dev.lastChange, dev.isSleeping = rIops, wIops, now, false
 			if c.verbose {
 				log.Printf("rIops or wIops has changed on '%s'", dev.device)
