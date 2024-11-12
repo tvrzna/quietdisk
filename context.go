@@ -144,13 +144,11 @@ func (c *context) updateDevices() {
 
 		// Check, if drive is really sleeping
 		if dev.isSleeping && dev.lastStandBy+int64(c.idlePeriod) <= now {
-			isSleeping, err := isDriveSleeping(dev.device)
-			if err != nil {
+			if isSleeping, err := isDriveSleeping(dev.device); err != nil {
 				log.Print(err)
 			} else if !isSleeping {
 				log.Printf("'%s' is awake, but should be asleep ", dev.device)
 				dev.isSleeping = false
-				dev.lastChange = now
 			}
 		}
 
