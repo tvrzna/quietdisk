@@ -103,6 +103,7 @@ func (c *context) initDevices() {
 		dev, err := initDevice(id)
 		if err != nil || dev == nil {
 			log.Print(err)
+			delete(c.devices, id)
 			continue
 		}
 		c.devices[id] = dev
@@ -136,7 +137,7 @@ func (c *context) updateDevices() {
 		wIops, _ := strconv.ParseUint(data[7], 10, 64)
 
 		dev := c.getDevice(major, minor)
-		if dev == nil || dev.isPartition() {
+		if dev == nil {
 			continue
 		}
 		dev.name = name

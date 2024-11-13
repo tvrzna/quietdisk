@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"syscall"
@@ -21,7 +22,14 @@ type device struct {
 
 // Initializes device
 func initDevice(dev string) (*device, error) {
-	d := &device{device: dev}
+	for dev[len(dev)-1] == '/' {
+		dev = dev[:len(dev)-1]
+	}
+
+	d := &device{device: dev, name: dev[len(devicePrefix):]}
+	if d.isPartition() {
+		return nil, fmt.Errorf("device '%s' is a partition, it could not be initialized", d.device)
+	}
 	return d, nil
 }
 
