@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	pathDiskstats = "/proc/diskstats"
-	pathBlocks    = "/sys/block"
+	pathDiskstats   = "/proc/diskstats"
+	pathBlocks      = "/sys/block"
+	pathClassBlocks = "/sys/class/block/"
 
 	devicePrefix = "/dev/"
 )
@@ -226,6 +227,16 @@ func (c *context) listDevices() []string {
 	}
 
 	for _, f := range dir {
+		if strings.HasPrefix(f.Name(), "loop") {
+			continue
+		}
+
+		d, _ := os.ReadFile(filepath.Join(pathClassBlocks, f.Name(), "size"))
+		size, _ := strconv.Atoi(strings.TrimSpace(string(d)))
+		if size == 0 {
+			continue
+		}
+
 		result = append(result, filepath.Join(devicePrefix, f.Name()))
 	}
 
