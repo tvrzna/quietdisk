@@ -34,21 +34,22 @@ func initDevice(dev string) (*device, error) {
 }
 
 // Updates major and minor from device specification. It handles possible hotswaping.
-func (d *device) updateMajorMinor() {
+func (d *device) updateMajorMinor() error {
 	fileInfo, err := os.Stat(d.device)
 	if err != nil {
 		d.reset()
-		return
+		return fmt.Errorf("device '%s' is not available", d.device)
 	}
 	stat, ok := fileInfo.Sys().(*syscall.Stat_t)
 	if !ok {
 		d.reset()
-		return
+		return fmt.Errorf("device '%s' is not available", d.device)
 	}
 
 	d.exists = true
 	d.major = int(uint32(stat.Rdev >> 8))
 	d.minor = int(uint32(stat.Rdev & 0xff))
+	return nil
 }
 
 // Resets all values except device

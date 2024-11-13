@@ -28,6 +28,7 @@ type context struct {
 	gracePeriod int
 	threshold   int
 	verbose     bool
+	allDevices  bool
 }
 
 // Initializes the context
@@ -62,14 +63,19 @@ Options:
 		case "-V", "--verbose":
 			c.verbose = true
 		default:
-			// TODO: support * for all devices
-			if strings.TrimSpace(value) != "" {
+			val := strings.TrimSpace(value)
+			if val == "*" {
+				c.allDevices = true
+			} else if val != "" {
 				c.devices[strings.TrimSpace(value)] = nil
 			}
 		}
 	})
 
-	if len(c.devices) == 0 {
+	if c.allDevices {
+		c.devices = make(map[string]*device)
+	}
+	if len(c.devices) == 0 && !c.allDevices {
 		log.Fatal("no device is defined, check help.")
 	}
 
@@ -99,7 +105,11 @@ func (c *context) start() {
 
 // Performs initialization of devices
 func (c *context) initDevices() {
-	for id := range c.devices {
+	for id, device := range c.devices {
+		if device != nil {
+			continue
+		}
+
 		dev, err := initDevice(id)
 		if err != nil || dev == nil {
 			log.Print(err)
@@ -110,11 +120,36 @@ func (c *context) initDevices() {
 	}
 }
 
+// Prepares map of devices to be used.
+func (c *context) prepareDevices() {
+	if c.allDevices {
+		devices := c.listDevices()
+		for _, dev := range devices {
+			if _, exists := c.devices[dev]; !exists {
+				c.devices[dev] = nil
+			}
+		}
+		c.initDevices()
+	}
+
+	if len(c.devices) == 0 {
+		log.Print("no device is available")
+	}
+
+	for _, d := range c.devices {
+		err := d.updateMajorMinor()
+		if err != nil {
+			log.Print(err)
+			if c.allDevices {
+				delete(c.devices, d.device)
+			}
+		}
+	}
+}
+
 // Performs updates on each device, if is available. Devices not listed in /proc/diskstats or partitions are skipped.
 func (c *context) updateDevices() {
-	for _, d := range c.devices {
-		d.updateMajorMinor()
-	}
+	c.prepareDevices()
 
 	b, err := os.ReadFile(pathDiskstats)
 	if err != nil {
