@@ -14,6 +14,7 @@ Usage: qd [options] [device ...]
 Options:
 	-h, --help			print this help
 	-v, --version			print version
+	-l, --list			lists all available devices
 	-i, --idle [SECONDS]		sets idle period, before device is put into standby mode (default = 300)
 	-g, --grace [SECONDS]		sets grace period, before device could be put into standby mode after return from standby mode (default = 600)
 	-t, --treshold [IOPS]		sets IOPS treshold (default = 1)

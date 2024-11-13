@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -14,6 +15,9 @@ import (
 
 const (
 	pathDiskstats = "/proc/diskstats"
+	pathBlocks    = "/sys/block"
+
+	devicePrefix = "/dev/"
 )
 
 var buildVersion string
@@ -39,6 +43,7 @@ func initContext(arg []string) *context {
 Options:
 	-h, --help			print this help
 	-v, --version			print version
+	-l, --list			lists all available devices
 	-i, --idle [SECONDS]		sets idle period, before device is put into standby mode (default = 300)
 	-g, --grace [SECONDS]		sets grace period, before device could be put into standby mode after return from standby mode (default = 600)
 	-t, --treshold [IOPS]		sets IOPS treshold (default = 1)
@@ -53,7 +58,7 @@ Options:
 		case "-g", "--grace":
 			c.gracePeriod, _ = strconv.Atoi(value)
 		case "-l", "--list":
-			// TODO: list all available devices
+			c.printListedDevices()
 		case "-V", "--verbose":
 			c.verbose = true
 		default:
@@ -172,6 +177,37 @@ func (c *context) updateDevices() {
 			}
 		}
 	}
+}
+
+// Lists devices
+func (c *context) listDevices() []string {
+	var result []string
+
+	dir, err := os.ReadDir(pathBlocks)
+	if err != nil {
+		log.Printf("could not read from '%s'", pathBlocks)
+		return result
+	}
+
+	for _, f := range dir {
+		result = append(result, filepath.Join(devicePrefix, f.Name()))
+	}
+
+	return result
+}
+
+// Prints listed devices
+func (c *context) printListedDevices() {
+	devices := c.listDevices()
+	if len(devices) == 0 {
+		fmt.Printf("No device to be listed")
+		os.Exit(1)
+	}
+	fmt.Printf("Listed devices:\n")
+	for _, dev := range devices {
+		fmt.Printf("\t%s\n", dev)
+	}
+	os.Exit(0)
 }
 
 // Gets device from map by major and minor identificators
