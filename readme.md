@@ -1,5 +1,5 @@
 # QuietDisk
-QuietDisk is a simple Go application designed to monitor the Read and Write IOPS (Input/Output Operations Per Second) of a specified hard drive every minute. When the drive is detected to be idle for a specified period, QuietDisk will automatically put the drive into standby mode using `hdparm -Y`. This helps in reducing power consumption and prolonging the lifespan of your hard drives.
+QuietDisk is a simple Go application designed to monitor the Read and Write IOPS (Input/Output Operations Per Second) of a specified hard drive every minute. When the drive is detected to be idle for a specified period, QuietDisk will automatically put the drive into standby mode using SG_IO or HDIO if necessary. This helps in reducing power consumption and prolonging the lifespan of your hard drives.
 
 ## Features:
 - Monitors Read and Write IOPS of the specified hard drive
