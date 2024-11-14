@@ -16,7 +16,7 @@ const (
 	ATA_16        = 0x85
 	SG_DXFER_NONE = 0
 
-	ATA_OP_CHECK_POWER_MODE1 ataOp = 0xE5
+	ATA_OP_CHECK_POWER_MODE1 ataOp = 0xe5
 	ATA_OP_SLEEPNOW1         ataOp = 0xe6
 	ATA_OP_CHECK_POWER_MODE2 ataOp = 0x98
 	ATA_OP_SLEEPNOW2         ataOp = 0x99
