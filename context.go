@@ -216,7 +216,7 @@ func (c *context) updateDevices() {
 	}
 }
 
-// Lists devices
+// Lists devices, exclude loops and zero size devices
 func (c *context) listDevices() []string {
 	var result []string
 
@@ -243,7 +243,7 @@ func (c *context) listDevices() []string {
 	return result
 }
 
-// Prints listed devices
+// Prints listed devices with their current power mode/state
 func (c *context) printListedDevices() {
 	devices := c.listDevices()
 	if len(devices) == 0 {
@@ -252,7 +252,8 @@ func (c *context) printListedDevices() {
 	}
 	fmt.Printf("Listed devices:\n")
 	for _, dev := range devices {
-		fmt.Printf("\t%s\n", dev)
+		state, _ := getDriveState(dev)
+		fmt.Printf("\t%s (%s)\n", dev, state.stringify())
 	}
 	os.Exit(0)
 }

@@ -8,6 +8,39 @@ import (
 	"strings"
 )
 
+type powerMode byte
+
+const (
+	standby powerMode = iota
+	nvcache_spindown
+	nvcache_spinup
+	idle
+	active
+	unknown
+)
+
+func parsePowerMode(val string) powerMode {
+	switch val {
+	case "standby":
+		return standby
+	case "NVcache_spindown":
+		return nvcache_spindown
+	case "NVcache_spinup":
+		return nvcache_spinup
+	case "idle":
+		return idle
+	case "active/idle":
+		return active
+	default:
+		return unknown
+	}
+}
+
+func (p *powerMode) stringify() string {
+	vals := []string{"standby", "NVcache_spindown", "NVcache_spinup", "idle", "active/idle", "unknown"}
+	return vals[*p]
+}
+
 var pathHdparm string
 var pathSudo string
 
@@ -61,15 +94,23 @@ func putDriveToSleep(device string) error {
 	return err
 }
 
-func isDriveSleeping(device string) (bool, error) {
+func getDriveState(device string) (powerMode, error) {
 	output, err := runHdparm("-C", device)
 	if err != nil {
-		return false, err
+		return unknown, err
 	}
 	i := strings.Index(output, "drive state is: ")
 	if i < 0 {
-		return false, errors.New("could not get drive state")
+		return unknown, errors.New("could not get drive state")
 	}
 	state := strings.TrimSpace(output[i+16:])
-	return state == "standby", nil
+	return parsePowerMode(state), nil
+}
+
+func isDriveSleeping(device string) (bool, error) {
+	state, err := getDriveState(device)
+	if err != nil {
+		return false, err
+	}
+	return state == standby, nil
 }
