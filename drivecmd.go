@@ -1,5 +1,7 @@
 package main
 
+import "syscall"
+
 type powerMode byte
 
 const (
@@ -29,8 +31,11 @@ func (p *powerMode) stringify() string {
 }
 
 func putDriveToSleep(device string) error {
-	_, err := sgioCommand(device, ATA_OP_SLEEPNOW1)
+	resp, err := sgioCommand(device, ATA_OP_SLEEPNOW1)
 	if err != nil {
+		if resp == byte(syscall.EACCES) {
+			return err
+		}
 		_, err = sgioCommand(device, ATA_OP_SLEEPNOW2)
 	}
 	return err
@@ -38,7 +43,9 @@ func putDriveToSleep(device string) error {
 
 func getDriveState(device string) (powerMode, error) {
 	val, err := sgioCommand(device, ATA_OP_CHECK_POWER_MODE1)
-	if val == byte(unknown) {
+	if val == byte(syscall.EACCES) {
+		return unknown, err
+	} else if val == byte(unknown) {
 		val, err = sgioCommand(device, ATA_OP_CHECK_POWER_MODE2)
 	}
 	return powerMode(val), err
