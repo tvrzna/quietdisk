@@ -4,5 +4,5 @@ import "os"
 
 func main() {
 	c := initContext(os.Args)
-	c.start()
+	c.startDaemon()
 }

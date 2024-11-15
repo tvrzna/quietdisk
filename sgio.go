@@ -25,6 +25,8 @@ const (
 	ATA_OP_SLEEPNOW1         ataOp = 0xe6
 	ATA_OP_CHECK_POWER_MODE2 ataOp = 0x98
 	ATA_OP_SLEEPNOW2         ataOp = 0x99
+
+	EACCESS = byte(syscall.EACCES)
 )
 
 type HDDriveCmdHdr struct {
@@ -63,11 +65,12 @@ type SgIoHdr struct {
 	Info           uint32
 }
 
+// Performs SG_IO command via ioctl. If SG_IO is not available for device, it tries HDIO command via ioctl.
 func sgioCommand(device string, ataCommand ataOp) (byte, error) {
 	file, err := os.OpenFile(device, os.O_RDWR, 0)
 	if err != nil {
 		log.Print(err)
-		return byte(syscall.EACCES), err
+		return EACCESS, err
 	}
 	defer file.Close()
 
@@ -105,6 +108,7 @@ func sgioCommand(device string, ataCommand ataOp) (byte, error) {
 	return senseBuf[13], nil
 }
 
+// Performs HDIO command via ioctl on Fd.
 func hdioCommand(fd uintptr, ataCommand ataOp) (byte, error) {
 	cmdHdr := &HDDriveCmdHdr{Command: byte(ataCommand)}
 	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, fd, uintptr(HDIO_DRIVE_CMD), uintptr(unsafe.Pointer(cmdHdr)))
