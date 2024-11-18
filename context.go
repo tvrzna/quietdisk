@@ -23,6 +23,7 @@ const (
 
 	contextActionDaemon contextAction = iota
 	contextActionCheck
+	contextActionSleep
 )
 
 var buildVersion string
@@ -59,6 +60,8 @@ func initContext(osArgs []string) *context {
 			c.printListedDevices()
 		case "-C", "-c", "--check":
 			action = contextActionCheck
+		case "-Y", "--sleep":
+			action = contextActionSleep
 		case "-V", "--verbose":
 			c.verbose = true
 		default:
@@ -74,6 +77,8 @@ func initContext(osArgs []string) *context {
 	switch action {
 	case contextActionCheck:
 		c.checkDevices()
+	case contextActionSleep:
+		c.sleepDevices()
 	}
 
 	c.d = &daemon{c}
@@ -205,6 +210,31 @@ func (c *context) checkDevices() {
 	os.Exit(0)
 }
 
+// Puts listed devices into sleep/standby mode.
+func (c *context) sleepDevices() {
+	if err := c.initDevices(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	if err := c.prepareDevices(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	for _, dev := range c.devices {
+		err := dev.putDriveToSleep()
+		fmt.Print(dev.device)
+		if err != nil {
+			fmt.Printf(": %v\n", err)
+		} else {
+			fmt.Printf(": putting into sleep\n")
+		}
+
+	}
+
+	os.Exit(0)
+}
+
 // Gets device from map by major and minor identificators.
 func (c *context) getDevice(major, minor int) *device {
 	for _, d := range c.devices {
@@ -231,6 +261,7 @@ Options:
 	-v, --version			print version
 	-l, --list			lists all available devices with their power mode
 	-C, -c, --check			check power mode of listed devices
+	-Y, --sleep			put listed devices into sleep mode
 	-i, --idle [SECONDS]		sets idle period, before device is put into standby mode (default = 300)
 	-g, --grace [SECONDS]		sets grace period, before device could be put into standby mode after return from standby mode (default = 600)
 	-t, --treshold [IOPS]		sets IOPS treshold (default = 1)
