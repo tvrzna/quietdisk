@@ -1,31 +1,57 @@
 # QuietDisk
-QuietDisk is a simple Go application designed to monitor the Read and Write IOPS (Input/Output Operations Per Second) of a specified hard drive every minute. When the drive is detected to be idle for a specified period, QuietDisk will automatically put the drive into standby mode using SG_IO or HDIO if necessary. This helps in reducing power consumption and prolonging the lifespan of your hard drives.
+QuietDisk is a lightweight Go application designed to manage the power states of hard drives by monitoring their activity. It helps reduce power consumption and extend the lifespan of drives by transitioning them into standby mode when idle. The tool also provides features for checking the current power state of drives and manually putting them into sleep mode.
 
-## Features:
-- Monitors Read and Write IOPS of the specified hard drive
-- Automatically transitions idle drives into standby mode
-- Configurable idle period and IOPS threshold
-- Implements a grace period to avoid frequent state toggling
-- Lightweight and efficient, suitable for continuous monitoring
+## Features
+- Monitors hard drive activity and puts idle devices into standby mode.
+- Directly interacts with devices using custom SG_IO and HDIO commands, avoiding external dependencies.
+- List and check the power mode of devices without running the daemon.
+- Option to manually put devices into standby mode.
+- Set a timeout for transitioning devices to standby mode after inactivity.
+- Prevents frequent toggling by enforcing a delay before a device can re-enter standby mode after waking up.
+- Set a threshold for Input/Output Operations Per Second to determine when a device is idle.
 
-## Usage:
+## Usage
 ```
 Usage: qd [options] [device ...]
 Options:
 	-h, --help			print this help
 	-v, --version			print version
-	-l, --list			lists all available devices
+	-l, --list			lists all available devices with their power mode
+	-C, -c, --check			check power mode of listed devices
+	-Y, --sleep			put listed devices into sleep mode
 	-i, --idle [SECONDS]		sets idle period, before device is put into standby mode (default = 300)
 	-g, --grace [SECONDS]		sets grace period, before device could be put into standby mode after return from standby mode (default = 600)
 	-t, --treshold [IOPS]		sets IOPS treshold (default = 1)
 	-V, --verbose			adds verbosity into logs
 ```
 
-## Installation:
+## Installation
 Clone the repository and build the application using Go.
 
 ```bash
 git clone https://github.com/tvrnza/quietdisk.git
 cd quietdisk
 make build install
+```
+
+## Example
+Start monitoring /dev/sda with a 10-minute idle period and a grace period of 15 minutes:
+```bash
+qd -i 600 -g 900 /dev/sda
+```
+
+List available devices and their power states:
+```bash
+qd -l
+```
+
+Check the power state of a specific device (e.g., /dev/sda):
+```bash
+qd -C /dev/sda
+```
+
+
+Put a device into sleep mode manually:
+```bash
+qd -Y /dev/sda
 ```
