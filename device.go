@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"syscall"
 )
 
@@ -117,6 +118,23 @@ func (d *device) reset() {
 func (d *device) isPartition() bool {
 	b, _ := os.Stat(path.Join("/sys/class/block/", d.name, "partition"))
 	return b != nil
+}
+
+// Checks if defined device is rotational
+func (d *device) isRotational() bool {
+	path := path.Join("/sys/class/block/", d.name, "queue/rotational")
+
+	b, _ := os.Stat(path)
+	if b == nil {
+		return false
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+
+	return strings.TrimSpace(string(data)) == "1"
 }
 
 // Converts power mode into human readable text.

@@ -38,6 +38,7 @@ type context struct {
 	threshold   int
 	verbose     bool
 	allDevices  bool
+	hddOnly     bool
 	action      contextAction
 	d           *daemon
 }
@@ -66,6 +67,8 @@ func initContext(osArgs []string) *context {
 			c.action = contextActionSleep
 		case "-V", "--verbose":
 			c.verbose = true
+		case "-H", "--hdd-only":
+			c.hddOnly = true
 		default:
 			val := strings.TrimSpace(arg)
 			if val == "all" {
@@ -111,7 +114,12 @@ func (c *context) listAllDevices() map[string]*device {
 
 		devName := filepath.Join(devicePrefix, f.Name())
 		var dev *device
-		result[devName], _ = dev.initDevice(devName)
+		device, _ := dev.initDevice(devName)
+
+		if c.hddOnly && !device.isRotational() {
+			continue
+		}
+		result[devName] = device
 	}
 
 	return result
@@ -134,6 +142,10 @@ func (c *context) initDevices() error {
 		dev, err := dev.initDevice(id)
 		if err != nil || dev == nil {
 			log.Print(err)
+			delete(c.devices, id)
+			continue
+		}
+		if c.hddOnly && !dev.isRotational() {
 			delete(c.devices, id)
 			continue
 		}
@@ -250,6 +262,7 @@ func (c *context) printHelp() {
 Options:
 	-h, --help			print this help
 	-v, --version			print version
+	-H, --hdd-only			works only with HDDs (rotational drives), skipping SSDs and NVMe devices.
 	-l, --list			lists all available devices with their power mode
 	-C, -c, --check			check power mode of listed devices
 	-Y, --sleep			put listed devices into sleep mode

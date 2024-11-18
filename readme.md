@@ -16,6 +16,7 @@ Usage: qd [options] [device ...]
 Options:
 	-h, --help			print this help
 	-v, --version			print version
+	-H, --hdd-only			works only with HDDs (rotational drives), skipping SSDs and NVMe devices.
 	-l, --list			lists all available devices with their power mode
 	-C, -c, --check			check power mode of listed devices
 	-Y, --sleep			put listed devices into sleep mode
