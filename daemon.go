@@ -15,13 +15,9 @@ type daemon struct {
 
 // Starts daemon and its periodical checks
 func (d *daemon) start() {
-	if d.c.allDevices {
-		d.c.devices = make(map[string]*device)
+	if err := d.c.initDevices(); err != nil {
+		log.Fatal(err)
 	}
-	if len(d.c.devices) == 0 && !d.c.allDevices {
-		log.Fatal("no device is defined, check help.")
-	}
-	d.initDevices()
 
 	log.Print("quietdisk started")
 
@@ -40,52 +36,11 @@ func (d *daemon) start() {
 	}
 }
 
-// Prepares map of devices to be used.
-func (d *daemon) prepareDevices() {
-	if d.c.allDevices {
-		devices := d.c.listDevices()
-		for dev := range devices {
-			if _, exists := d.c.devices[dev]; !exists {
-				d.c.devices[dev] = devices[dev]
-			}
-		}
-	}
-
-	if len(d.c.devices) == 0 {
-		log.Print("no device is available")
-	}
-
-	for _, dev := range d.c.devices {
-		err := dev.updateMajorMinor()
-		if err != nil {
-			log.Print(err)
-			if d.c.allDevices {
-				delete(d.c.devices, dev.device)
-			}
-		}
-	}
-}
-
-// Performs initialization of devices
-func (d *daemon) initDevices() {
-	for id, dev := range d.c.devices {
-		if dev != nil {
-			continue
-		}
-
-		dev, err := dev.initDevice(id)
-		if err != nil || dev == nil {
-			log.Print(err)
-			delete(d.c.devices, id)
-			continue
-		}
-		d.c.devices[id] = dev
-	}
-}
-
 // Performs updates on each device, if is available. Devices not listed in /proc/diskstats or partitions are skipped.
 func (d *daemon) updateDevices() {
-	d.prepareDevices()
+	if err := d.c.prepareDevices(); err != nil {
+		log.Print(err)
+	}
 
 	b, err := os.ReadFile(pathDiskstats)
 	if err != nil {

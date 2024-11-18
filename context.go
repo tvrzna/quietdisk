@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -11,12 +12,17 @@ import (
 	"github.com/tvrzna/go-utils/args"
 )
 
+type contextAction byte
+
 const (
 	pathDiskstats   = "/proc/diskstats"
 	pathBlocks      = "/sys/block"
 	pathClassBlocks = "/sys/class/block/"
 
 	devicePrefix = "/dev/"
+
+	contextActionDaemon contextAction = iota
+	contextActionCheck
 )
 
 var buildVersion string
@@ -32,10 +38,13 @@ type context struct {
 }
 
 // Initializes the context
-func initContext(arg []string) *context {
+func initContext(osArgs []string) *context {
 	c := &context{idlePeriod: 300, gracePeriod: 600, threshold: 1, devices: make(map[string]*device)}
 
-	args.ParseArgs(arg, func(arg, value string) {
+	action := contextActionDaemon
+
+	osArgs = osArgs[1:]
+	args.ParseArgs(osArgs, func(arg, value string) {
 		switch arg {
 		case "-h", "--help":
 			c.printHelp()
@@ -48,17 +57,24 @@ func initContext(arg []string) *context {
 			c.gracePeriod, _ = strconv.Atoi(value)
 		case "-l", "--list":
 			c.printListedDevices()
+		case "-C", "-c", "--check":
+			action = contextActionCheck
 		case "-V", "--verbose":
 			c.verbose = true
 		default:
-			val := strings.TrimSpace(value)
+			val := strings.TrimSpace(arg)
 			if val == "all" {
 				c.allDevices = true
 			} else if val != "" {
-				c.devices[strings.TrimSpace(value)] = nil
+				c.devices[val] = nil
 			}
 		}
 	})
+
+	switch action {
+	case contextActionCheck:
+		c.checkDevices()
+	}
 
 	c.d = &daemon{c}
 
@@ -70,8 +86,8 @@ func (c *context) startDaemon() {
 	c.d.start()
 }
 
-// Lists devices, exclude loops and zero size devices.
-func (c *context) listDevices() map[string]*device {
+// Lists all devices, exclude loops and zero size devices.
+func (c *context) listAllDevices() map[string]*device {
 	result := make(map[string]*device)
 
 	dir, err := os.ReadDir(pathBlocks)
@@ -99,11 +115,64 @@ func (c *context) listDevices() map[string]*device {
 	return result
 }
 
+// Performs initialization of devices
+func (c *context) initDevices() error {
+	if c.allDevices {
+		c.devices = make(map[string]*device)
+	}
+	if len(c.devices) == 0 && !c.allDevices {
+		return errors.New("no device is defined")
+	}
+
+	for id, dev := range c.devices {
+		if dev != nil {
+			continue
+		}
+
+		dev, err := dev.initDevice(id)
+		if err != nil || dev == nil {
+			log.Print(err)
+			delete(c.devices, id)
+			continue
+		}
+		c.devices[id] = dev
+	}
+
+	return nil
+}
+
+// Prepares map of devices to be used.
+func (c *context) prepareDevices() error {
+	if c.allDevices {
+		devices := c.listAllDevices()
+		for dev := range devices {
+			if _, exists := c.devices[dev]; !exists {
+				c.devices[dev] = devices[dev]
+			}
+		}
+	}
+
+	if len(c.devices) == 0 {
+		return errors.New("no device is available")
+	}
+
+	for _, dev := range c.devices {
+		err := dev.updateMajorMinor()
+		if err != nil {
+			if c.allDevices {
+				delete(c.devices, dev.device)
+			}
+		}
+	}
+
+	return nil
+}
+
 // Prints listed devices with their current power mode/state.
 func (c *context) printListedDevices() {
-	devices := c.listDevices()
+	devices := c.listAllDevices()
 	if len(devices) == 0 {
-		fmt.Printf("No device to be listed")
+		fmt.Printf("No device to be listed\n")
 		os.Exit(1)
 	}
 	fmt.Printf("Listed devices:\n")
@@ -111,6 +180,28 @@ func (c *context) printListedDevices() {
 		state, _ := dev.getDriveState()
 		fmt.Printf("\t%s (%s)\n", dev.device, state.stringify())
 	}
+	os.Exit(0)
+}
+
+// Checks power state of listed devices.
+func (c *context) checkDevices() {
+	if err := c.initDevices(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	if err := c.prepareDevices(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	for _, dev := range c.devices {
+		state, err := dev.getDriveState()
+		fmt.Printf("%s (%s)\n", dev.device, state.stringify())
+		if err != nil {
+			fmt.Printf("\t%v\n", err)
+		}
+	}
+
 	os.Exit(0)
 }
 
@@ -138,7 +229,8 @@ func (c *context) printHelp() {
 Options:
 	-h, --help			print this help
 	-v, --version			print version
-	-l, --list			lists all available devices
+	-l, --list			lists all available devices with their power mode
+	-C, -c, --check			check power mode of listed devices
 	-i, --idle [SECONDS]		sets idle period, before device is put into standby mode (default = 300)
 	-g, --grace [SECONDS]		sets grace period, before device could be put into standby mode after return from standby mode (default = 600)
 	-t, --treshold [IOPS]		sets IOPS treshold (default = 1)
