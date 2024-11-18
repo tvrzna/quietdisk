@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"syscall"
 	"unsafe"
@@ -69,7 +68,6 @@ type SgIoHdr struct {
 func sgioCommand(device string, ataCommand ataOp) (byte, error) {
 	file, err := os.OpenFile(device, os.O_RDWR, 0)
 	if err != nil {
-		log.Print(err)
 		return EACCESS, err
 	}
 	defer file.Close()
