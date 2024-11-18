@@ -15,15 +15,18 @@ import (
 type contextAction byte
 
 const (
+	contextActionDaemon contextAction = iota
+	contextActionList
+	contextActionCheck
+	contextActionSleep
+)
+
+const (
 	pathDiskstats   = "/proc/diskstats"
 	pathBlocks      = "/sys/block"
 	pathClassBlocks = "/sys/class/block/"
 
 	devicePrefix = "/dev/"
-
-	contextActionDaemon contextAction = iota
-	contextActionCheck
-	contextActionSleep
 )
 
 var buildVersion string
@@ -35,14 +38,13 @@ type context struct {
 	threshold   int
 	verbose     bool
 	allDevices  bool
+	action      contextAction
 	d           *daemon
 }
 
 // Initializes the context
 func initContext(osArgs []string) *context {
-	c := &context{idlePeriod: 300, gracePeriod: 600, threshold: 1, devices: make(map[string]*device)}
-
-	action := contextActionDaemon
+	c := &context{idlePeriod: 300, gracePeriod: 600, threshold: 1, devices: make(map[string]*device), action: contextActionDaemon}
 
 	osArgs = osArgs[1:]
 	args.ParseArgs(osArgs, func(arg, value string) {
@@ -57,31 +59,26 @@ func initContext(osArgs []string) *context {
 		case "-g", "--grace":
 			c.gracePeriod, _ = strconv.Atoi(value)
 		case "-l", "--list":
-			c.printListedDevices()
+			c.action = contextActionList
 		case "-C", "-c", "--check":
-			action = contextActionCheck
+			c.action = contextActionCheck
 		case "-Y", "--sleep":
-			action = contextActionSleep
+			c.action = contextActionSleep
 		case "-V", "--verbose":
 			c.verbose = true
 		default:
 			val := strings.TrimSpace(arg)
 			if val == "all" {
 				c.allDevices = true
-			} else if val != "" {
+			} else if strings.HasPrefix(val, "/") {
 				c.devices[val] = nil
 			}
 		}
 	})
 
-	switch action {
-	case contextActionCheck:
-		c.checkDevices()
-	case contextActionSleep:
-		c.sleepDevices()
+	if c.action == contextActionDaemon {
+		c.d = &daemon{c}
 	}
-
-	c.d = &daemon{c}
 
 	return c
 }
@@ -185,7 +182,6 @@ func (c *context) printListedDevices() {
 		state, _ := dev.getDriveState()
 		fmt.Printf("\t%s (%s)\n", dev.device, state.stringify())
 	}
-	os.Exit(0)
 }
 
 // Checks power state of listed devices.
@@ -206,8 +202,6 @@ func (c *context) checkDevices() {
 			fmt.Printf("\t%v\n", err)
 		}
 	}
-
-	os.Exit(0)
 }
 
 // Puts listed devices into sleep/standby mode.
@@ -229,10 +223,7 @@ func (c *context) sleepDevices() {
 		} else {
 			fmt.Printf(": putting into sleep\n")
 		}
-
 	}
-
-	os.Exit(0)
 }
 
 // Gets device from map by major and minor identificators.
