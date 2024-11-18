@@ -52,7 +52,7 @@ func initContext(arg []string) *context {
 			c.verbose = true
 		default:
 			val := strings.TrimSpace(value)
-			if val == "*" {
+			if val == "all" {
 				c.allDevices = true
 			} else if val != "" {
 				c.devices[strings.TrimSpace(value)] = nil
