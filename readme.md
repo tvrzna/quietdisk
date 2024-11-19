@@ -30,7 +30,7 @@ Options:
 Clone the repository and build the application using Go.
 
 ```bash
-git clone https://github.com/tvrnza/quietdisk.git
+git clone https://github.com/tvrzna/quietdisk.git
 cd quietdisk
 make build install
 ```
