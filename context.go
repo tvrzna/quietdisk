@@ -92,12 +92,12 @@ func (c *context) startDaemon() {
 }
 
 // Lists all devices, exclude loops and zero size devices.
-func (c *context) listAllDevices() map[string]*device {
-	result := make(map[string]*device)
+func (c *context) listAllDevices() []string {
+	var result []string
 
 	dir, err := os.ReadDir(pathBlocks)
 	if err != nil {
-		log.Printf("could not read from '%s'", pathBlocks)
+		c.logError(fmt.Sprintf("could not read from '%s'", pathBlocks))
 		return result
 	}
 
@@ -113,13 +113,7 @@ func (c *context) listAllDevices() map[string]*device {
 		}
 
 		devName := filepath.Join(devicePrefix, f.Name())
-		var dev *device
-		device, _ := dev.initDevice(devName)
-
-		if c.hddOnly && !device.isRotational() {
-			continue
-		}
-		result[devName] = device
+		result = append(result, devName)
 	}
 
 	return result
@@ -129,6 +123,11 @@ func (c *context) listAllDevices() map[string]*device {
 func (c *context) initDevices() error {
 	if c.allDevices {
 		c.devices = make(map[string]*device)
+		if c.action != contextActionDaemon {
+			for _, dev := range c.listAllDevices() {
+				c.devices[dev] = nil
+			}
+		}
 	}
 	if len(c.devices) == 0 && !c.allDevices {
 		return errors.New("no device is defined")
@@ -139,13 +138,11 @@ func (c *context) initDevices() error {
 			continue
 		}
 
-		dev, err := dev.initDevice(id)
+		dev, err := dev.initDevice(id, c.hddOnly)
 		if err != nil || dev == nil {
-			log.Print(err)
-			delete(c.devices, id)
-			continue
-		}
-		if c.hddOnly && !dev.isRotational() {
+			if err != nil {
+				c.logError(err)
+			}
 			delete(c.devices, id)
 			continue
 		}
@@ -155,45 +152,10 @@ func (c *context) initDevices() error {
 	return nil
 }
 
-// Prepares map of devices to be used.
-func (c *context) prepareDevices() error {
-	if c.allDevices {
-		devices := c.listAllDevices()
-		for dev := range devices {
-			if _, exists := c.devices[dev]; !exists {
-				c.devices[dev] = devices[dev]
-			}
-		}
-	}
-
-	if len(c.devices) == 0 {
-		return errors.New("no device is available")
-	}
-
-	for _, dev := range c.devices {
-		err := dev.updateMajorMinor()
-		if err != nil {
-			if c.allDevices {
-				delete(c.devices, dev.device)
-			}
-		}
-	}
-
-	return nil
-}
-
 // Prints listed devices with their current power mode/state.
 func (c *context) printListedDevices() {
-	devices := c.listAllDevices()
-	if len(devices) == 0 {
-		fmt.Printf("No device to be listed\n")
-		os.Exit(1)
-	}
-	fmt.Printf("Listed devices:\n")
-	for _, dev := range devices {
-		state, _ := dev.getDriveState()
-		fmt.Printf("\t%s (%s)\n", dev.device, state.stringify())
-	}
+	c.allDevices = true
+	c.checkDevices()
 }
 
 // Checks power state of listed devices.
@@ -202,27 +164,20 @@ func (c *context) checkDevices() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	if err := c.prepareDevices(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
 
 	for _, dev := range c.devices {
 		state, err := dev.getDriveState()
-		fmt.Printf("%s (%s)\n", dev.device, state.stringify())
+		fmt.Printf("%s (%s)", dev.device, state.stringify())
 		if err != nil {
-			fmt.Printf("\t%v\n", err)
+			fmt.Printf(": %v", err)
 		}
+		fmt.Printf("\n")
 	}
 }
 
 // Puts listed devices into sleep/standby mode.
 func (c *context) sleepDevices() {
 	if err := c.initDevices(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	if err := c.prepareDevices(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
@@ -236,16 +191,6 @@ func (c *context) sleepDevices() {
 			fmt.Printf(": putting into sleep\n")
 		}
 	}
-}
-
-// Gets device from map by major and minor identificators.
-func (c *context) getDevice(major, minor int) *device {
-	for _, d := range c.devices {
-		if d.exists && d.major == major && d.minor == minor {
-			return d
-		}
-	}
-	return nil
 }
 
 // Gets project version
@@ -272,4 +217,13 @@ Options:
 	-V, --verbose			adds verbosity into logs
 `)
 	os.Exit(0)
+}
+
+// Logs error in case of daemon, in case of CLI it just prints the error.
+func (c *context) logError(a ...any) {
+	if c.action == contextActionDaemon {
+		log.Print(a...)
+	} else {
+		fmt.Println(a...)
+	}
 }

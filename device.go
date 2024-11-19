@@ -33,15 +33,22 @@ const (
 )
 
 // Initializes device
-func (d *device) initDevice(dev string) (*device, error) {
+func (d *device) initDevice(dev string, hddOnly bool) (*device, error) {
 	if d == nil {
 		for dev[len(dev)-1] == '/' {
 			dev = dev[:len(dev)-1]
 		}
 
+		if len(dev) <= len(devicePrefix) {
+			return nil, fmt.Errorf("device '%s' cannot be recognized", dev)
+		}
+
 		d = &device{device: dev, name: dev[len(devicePrefix):]}
 		if d.isPartition() {
 			return nil, fmt.Errorf("device '%s' is a partition, it could not be initialized", d.device)
+		}
+		if hddOnly && !d.isRotational() {
+			return nil, nil
 		}
 		return d, nil
 	} else {

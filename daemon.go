@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"log"
 	"os"
 	"strconv"
@@ -38,7 +39,7 @@ func (d *daemon) start() {
 
 // Performs updates on each device, if is available. Devices not listed in /proc/diskstats or partitions are skipped.
 func (d *daemon) updateDevices() {
-	if err := d.c.prepareDevices(); err != nil {
+	if err := d.refreshDevices(); err != nil {
 		log.Print(err)
 	}
 
@@ -62,7 +63,7 @@ func (d *daemon) updateDevices() {
 		rIops, _ := strconv.ParseUint(data[3], 10, 64)
 		wIops, _ := strconv.ParseUint(data[7], 10, 64)
 
-		dev := d.c.getDevice(major, minor)
+		dev := d.getDevice(major, minor)
 		if dev == nil {
 			continue
 		}
@@ -104,4 +105,46 @@ func (d *daemon) updateDevices() {
 			}
 		}
 	}
+}
+
+// Refreshes map of devices to be used.
+func (d *daemon) refreshDevices() error {
+	if d.c.allDevices {
+		devices := d.c.listAllDevices()
+		for _, id := range devices {
+			if _, exists := d.c.devices[id]; !exists {
+				var dev *device
+				var err error
+				dev, err = dev.initDevice(id, d.c.hddOnly)
+				if err == nil && dev != nil {
+					d.c.devices[id] = dev
+				}
+			}
+		}
+	}
+
+	if len(d.c.devices) == 0 {
+		return errors.New("no device is available")
+	}
+
+	for _, dev := range d.c.devices {
+		err := dev.updateMajorMinor()
+		if err != nil {
+			if d.c.allDevices {
+				delete(d.c.devices, dev.device)
+			}
+		}
+	}
+
+	return nil
+}
+
+// Gets device from map by major and minor identificators.
+func (d *daemon) getDevice(major, minor int) *device {
+	for _, dev := range d.c.devices {
+		if dev.exists && dev.major == major && dev.minor == minor {
+			return dev
+		}
+	}
+	return nil
 }
