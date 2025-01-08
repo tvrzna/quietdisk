@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -165,7 +166,14 @@ func (c *context) checkDevices() {
 		os.Exit(1)
 	}
 
-	for _, dev := range c.devices {
+	keys := make([]string, 0, len(c.devices))
+	for key := range c.devices {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		dev := c.devices[key]
 		state, err := dev.getDriveState()
 		fmt.Printf("%s (%s)", dev.device, state.stringify())
 		if err != nil {
