@@ -47,6 +47,9 @@ func (d *device) initDevice(dev string, hddOnly bool) (*device, error) {
 		if d.isPartition() {
 			return nil, fmt.Errorf("device '%s' is a partition, it could not be initialized", d.device)
 		}
+		if !d.isDevice() {
+			return nil, fmt.Errorf("device '%s' is not a device, it could not be initialized", d.device)
+		}
 		if hddOnly && !d.isRotational() {
 			return nil, nil
 		}
@@ -142,6 +145,12 @@ func (d *device) isRotational() bool {
 	}
 
 	return strings.TrimSpace(string(data)) == "1"
+}
+
+// Checks if defined device is really device
+func (d *device) isDevice() bool {
+	b, _ := os.Stat(path.Join("/sys/class/block/", d.name, "device"))
+	return b != nil
 }
 
 // Converts power mode into human readable text.
