@@ -48,7 +48,7 @@ func (d *device) initDevice(dev string, hddOnly bool) (*device, error) {
 			return nil, fmt.Errorf("device '%s' is a partition, it could not be initialized", d.device)
 		}
 		if !d.isDevice() {
-			return nil, fmt.Errorf("device '%s' is not a device, it could not be initialized", d.device)
+			return nil, nil
 		}
 		if hddOnly && !d.isRotational() {
 			return nil, nil
